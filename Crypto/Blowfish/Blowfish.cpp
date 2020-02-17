@@ -161,7 +161,7 @@ void Blowfish::decrypt_block(const u32* const src, u32* const dst) const noexcep
 
 /**
  * @brief encrypt_ecb
- * Szyfrowanie w trybie CBC.
+ * Szyfrowanie w trybie ECB.
  * Jeśli rozmiar jawnych danych nie jest wielokrotnością rozmiaru bloku
  * zostanie uzupełniony o tzw. padding.
  *
@@ -240,7 +240,7 @@ Blowfish::decrypt_ecb(const void* const cipher, int nbytes) const noexcept {
 
 /**
  * @brief encrypt_cbc
- * Szyfrowanie CBC z wektorem IV. Jeśli IV nie został przekazany
+ * Szyfrowanie w trybie CBC z wektorem IV. Jeśli IV nie został przekazany
  * jako parametr to zostanie losowo wygenerowany.
  * Wektor IV jest pierwszym blokiem zaszyfrowanych danych.
  * Jeśli rozmiar jawnych danych nie jest wielokrotnością rozmiaru bloku
@@ -308,7 +308,7 @@ Blowfish::encrypt_cbc(const void* const data, const int nbytes, void* iv) const 
 
 /**
  * @brief decrypt_cbc
- * Deszyfrowanie CBC.
+ * Deszyfrowanie w trybie CBC.
  * Należy pamietać że pierwszym blokiem zaszyfrowanych danych jest wektor IV.
  * Jeśli odszyfrowane jawne dane zawierają padding to zostanie on 'ucięty'.
  *
