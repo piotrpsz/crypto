@@ -4,11 +4,16 @@
 #include <cassert>
 #include <vector>
 #include "Crypto/Blowfish/Blowfish.h"
+#include "Crypto/Gost/Gost.h"
 
 using namespace std;
+using namespace beesoft::crypto;
 
 bool compare_bytes(void* const, void* const, const int);
 void print_bytes(void* const, const int);
+
+void test_gost();
+void gost_test_block();
 
 void test_blowfish();
 void blowfish_test_block();
@@ -18,8 +23,78 @@ void blowfish_test_cbc_without_iv();
 
 int main() {
     test_blowfish();
+    cout << endl;
+    test_gost();
     return 0;
 }
+
+void test_gost() {
+    gost_test_block();
+}
+
+void gost_test_block() {
+    u8 key[] = {
+        1, 2, 3, 4, 5, 6, 7, 8, 9, 0,
+        1, 2, 3, 4, 5, 6, 7, 8, 9, 0,
+        1, 2, 3, 4, 5, 6, 7, 8, 9, 0,
+        1, 2
+    };
+    struct test {
+        u32 plain[2];
+        u32 cipher[2];
+    } tests[] = {
+        {
+            {0x0, 0x0},
+            {0x9b717f65, 0x32b884d0}
+        },
+        {
+            {0x0, 0x1},
+            {0xe5112916, 0xd5620daf}
+        },
+        {
+            {0x1, 0x0},
+            {0xd9641556, 0xa0cdcf41}
+        },
+        {
+            {0x1, 0x2},
+            {0x60591f3d, 0x5797bf40}
+        },
+        {
+            {0x2510, 0x1959},
+            {0x3967d936, 0x1f7af77b}
+        },
+        {
+            {0xabcdef, 0x123456},
+            {0x5280fbb5, 0xdd68c520}
+        },
+        {
+            {0xaabbccdd, 0xeeff1122},
+            {0xc9379503, 0x626e5b08}
+        },
+        {
+            {0xffffffff, 0xffffffff},
+            {0xef9c8b90, 0x70dbbfbf}
+        }
+    };
+
+    Gost gt(key, 32);
+    for (int i = 0; i < int(sizeof(tests)/sizeof(test)); i++) {
+        u32 result[2] = {};
+        {
+            gt.encrypt_block(tests[i].plain, result);
+            assert(tests[i].cipher[0] == result[0]);
+            assert(tests[i].cipher[1] == result[1]);
+        }
+        {
+            gt.decrypt_block(result, result);
+            assert(tests[i].plain[0] == result[0]);
+            assert(tests[i].plain[1] == result[1]);
+        }
+    }
+
+    cout << "gost_test_block: OK" << endl;
+}
+
 
 /********************************************************************
  *                                                                  *
@@ -142,30 +217,30 @@ void blowfish_test_cbc_without_iv() {
         { 0x8f, 0x8e, 0x8d, 0x8c, 0x8b, 0x8a, 0x89, 0x88, 0x87, 0x88, 0x86, 0x85, 0x84 },
     };
     vector<string> plain = {
-        { string("Beesoft Software, Piotr Pszczółkowski") },
-        { string("Beesoft Software, Piotr Pszczółkowsk") },
-        { string("Beesoft Software, Piotr Pszczółkows") },
-        { string("Beesoft Software, Piotr Pszczółkow") },
-        { string("Beesoft Software, Piotr Pszczółko") },
-        { string("Beesoft Software, Piotr Pszczółk") },
-        { string("Beesoft Software, Piotr Pszczół") },
-        { string("Beesoft Software, Piotr Pszczó") },
-        { string("Beesoft Software, Piotr Pszcz") },
-        { string("Beesoft Software, Piotr Pszc") },
-        { string("Beesoft Software, Piotr Psz") },
-        { string("Beesoft Software, Piotr Ps") },
-        { string("Beesoft Software, Piotr P") },
-        { string("Beesoft Software, Piotr ") },
-        { string("Beesoft Software, Piotr") },
-        { string("Beesoft Software, Piot") },
-        { string("Beesoft Software, Pio") },
-        { string("Beesoft Software, Pi") },
-        { string("Beesoft Software, P") },
-        { string("Beesoft Software, ") },
-        { string("Beesoft Software,") },
-        { string("Beesoft Software") },
-        { string("Beesoft") },
-        { string("") }
+        string("Beesoft Software, Piotr Pszczółkowski"),
+        string("Beesoft Software, Piotr Pszczółkowsk"),
+        string("Beesoft Software, Piotr Pszczółkows"),
+        string("Beesoft Software, Piotr Pszczółkow"),
+        string("Beesoft Software, Piotr Pszczółko"),
+        string("Beesoft Software, Piotr Pszczółk"),
+        string("Beesoft Software, Piotr Pszczół"),
+        string("Beesoft Software, Piotr Pszczó"),
+        string("Beesoft Software, Piotr Pszcz"),
+        string("Beesoft Software, Piotr Pszc"),
+        string("Beesoft Software, Piotr Psz"),
+        string("Beesoft Software, Piotr Ps"),
+        string("Beesoft Software, Piotr P"),
+        string("Beesoft Software, Piotr "),
+        string("Beesoft Software, Piotr"),
+        string("Beesoft Software, Piot"),
+        string("Beesoft Software, Pio"),
+        string("Beesoft Software, Pi"),
+        string("Beesoft Software, P"),
+        string("Beesoft Software, "),
+        string("Beesoft Software,"),
+        string("Beesoft Software"),
+        string("Beesoft"),
+        string("")
     };
 
     for (int i = 0; i < 20; i++) {
