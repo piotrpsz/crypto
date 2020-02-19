@@ -49,6 +49,9 @@ public:
     Way3(const void* const, const int);
     ~Way3();
 
+    void encrypt_block(const u32* const, u32* const) const noexcept;
+    void decrypt_block(const u32* const, u32* const) const noexcept;
+
 public:
     u32* gamma(u32* const) const noexcept;
     u32* mu(u32* const) const noexcept;

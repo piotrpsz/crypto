@@ -56,15 +56,67 @@ Way3::Way3(const void* const key, const int key_size) {
     memcpy(k, key, KeySize);
     memcpy(ki, key, KeySize);
     mu(theta(ki));
-
-    printf(" k: %x, %x, %x\n", k[0], k[1], k[2]);
-    printf("ki: %x, %x, %x\n", ki[0], ki[1], ki[2]);
 }
 
 Way3::~Way3() {
     Crypto::clear_bytes(k, 3 * sizeof(u32));
     Crypto::clear_bytes(ki, 3 * sizeof(u32));
 }
+
+/**
+ * @brief encrypt_block
+ * Szyfrowanie bloku (3 x u32) jawnych danych.
+ *
+ * @param src - adres bufora z jawnymi danymi.
+ * @param dst - adres bufora na dane zaszyfrowane.
+ */
+void Way3::encrypt_block(const u32* const src, u32* const dst) const noexcept {
+    u32 a[3];
+    memcpy(a, src, BlockSize);
+
+    for (int i = 0; i < Nmbr; i++) {
+        a[0] ^= (k[0] ^ (ercon[i] << 16));
+        a[1] ^= k[1];
+        a[2] ^= (k[2] ^ ercon[i]);
+        rho(a);
+    }
+    a[0] ^= (k[0] ^ (ercon[Nmbr] << 16));
+    a[1] ^= k[1];
+    a[2] ^= (k[2] ^ ercon[Nmbr]);
+
+    memcpy(dst, theta(a), BlockSize);
+}
+
+/**
+ * @brief decrypt_block
+ * Odszyfrowanie bloku (3 x u32) zaszyfrowanych danych.
+ *
+ * @param src - adres bufora z zaszyfrowanymi danymi
+ * @param dst - adres bufora na dane odszyfrowane.
+ */
+void Way3::decrypt_block(const u32* const src, u32* const dst) const noexcept {
+    u32 a[3];
+    mu((u32*)memcpy(a, src, BlockSize));
+
+    for (int i = 0; i < Nmbr; i++) {
+        a[0] ^= ki[0] ^ (drcon[i] << 16);
+        a[1] ^= ki[1];
+        a[2] ^= ki[2] ^ drcon[i];
+        rho(a);
+    }
+    a[0] ^= ki[0] ^ (drcon[Nmbr] << 16);
+    a[1] ^= ki[1];
+    a[2] ^= ki[2] ^ drcon[Nmbr];
+
+    memcpy(dst, mu(theta(a)), BlockSize);
+}
+
+
+/********************************************************************
+ *                                                                  *
+ *                        H E L P E R S                             *
+ *                                                                  *
+ *******************************************************************/
 
 u32* Way3::gamma(u32* const data) const noexcept {
     const u32 a0 = data[0];

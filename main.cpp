@@ -51,7 +51,47 @@ void test_way3() {
 }
 
 void way3_test_encrypt_block() {
+    struct test {
+        u32 key[3];
+        u32 plain[3];
+        u32 cipher[3];
+    } tests[] = {
+        {
+            {0, 0, 0},
+            {1, 1, 1},
+            {0x4059c76e, 0x83ae9dc4, 0xad21ecf7}
+        },
+        {
+            {6, 5, 4},
+            {3, 2, 1},
+            {0xd2f05b5e, 0xd6144138, 0xcab920cd}
+        },
+        {
+            {0xdef01234, 0x456789ab, 0xbcdef012},
+            {0x23456789, 0x9abcdef0, 0x01234567},
+            {0x0aa55dbb, 0x9cdddb6d, 0x7cdb76b2}
+        },
+        {
+            {0xd2f05b5e, 0xd6144138, 0xcab920cd},
+            {0x4059c76e, 0x83ae9dc4, 0xad21ecf7},
+            {0x478ea871, 0x6b13f17c, 0x15b155ed},
+        },
+    };
 
+    u32 buffer[3];
+    for (int i = 0; i < int(sizeof(tests)/sizeof(test)); i++) {
+        Way3 w3(tests[i].key, 12);
+        w3.encrypt_block(tests[i].plain, buffer);
+        assert(buffer[0] == tests[i].cipher[0]);
+        assert(buffer[1] == tests[i].cipher[1]);
+        assert(buffer[2] == tests[i].cipher[2]);
+
+        w3.decrypt_block(buffer, buffer);
+        assert(buffer[0] == tests[i].plain[0]);
+        assert(buffer[1] == tests[i].plain[1]);
+        assert(buffer[2] == tests[i].plain[2]);
+    }
+    cout << "way3_test_block: OK" << endl;
 }
 
 void way3_test_rho() {
