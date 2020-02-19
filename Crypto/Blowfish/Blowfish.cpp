@@ -286,7 +286,7 @@ Blowfish::decrypt_ecb(const void* const cipher, int nbytes) const noexcept {
         dst += 2;
     }
 
-    if (const int idx = padding_index(plain, nbytes); idx != -1) {
+    if (const int idx = Crypto::padding_index(plain, nbytes); idx != -1) {
         nbytes = idx;
     }
     return make_tuple(shared_ptr<void>(plain, [](void* ptr) {delete[] static_cast<u8*>(ptr);}), nbytes);
@@ -393,31 +393,10 @@ Blowfish::decrypt_cbc(const void* const cipher, int nbytes) const noexcept {
         src += 2;
     }
 
-    if (const int idx = padding_index(plain, nbytes); idx != -1) {
+    if (const int idx = Crypto::padding_index(plain, nbytes); idx != -1) {
         nbytes = idx;
     }
     return make_tuple(shared_ptr<void>(plain, [](void* ptr) {delete[] static_cast<u8*>(ptr);}), nbytes);
-}
-
-/**
- * @brief padding_index
- * Wyszukiwanie od końca 1-szego wystąpienia bajtu o wartości 128.
- * Szukany bajt może być poprzedzony (od końca) tylko bajtami zerowymi.
- *
- * @param data - adres bufora z danymi.
- * @param nbytes - rozmiar bufora z danymi.
- * @return indeks bajtu w wartości 128, lub -1 jeśli nie znaleziono.
- */
-int Blowfish::padding_index(const u8* const data, const int nbytes) const noexcept {
-    for (int i = nbytes - 1; i >= 0; i--) {
-        if (data[i] != 0) {
-            if (data[i] == 128) {
-                return i;
-            }
-            break;
-        }
-    }
-    return -1;
 }
 
 }} // namespaces

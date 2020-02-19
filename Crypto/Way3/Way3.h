@@ -49,8 +49,14 @@ public:
     Way3(const void* const, const int);
     ~Way3();
 
+    std::tuple<std::shared_ptr<void>, int> encrypt_cbc(const void* const, const int, void* = nullptr) const noexcept;
+    std::tuple<std::shared_ptr<void>, int> decrypt_cbc(const void* const, int) const noexcept;
+
     void encrypt_block(const u32* const, u32* const) const noexcept;
     void decrypt_block(const u32* const, u32* const) const noexcept;
+
+    std::tuple<std::shared_ptr<void>, int> encrypt_ecb(const void* const, const int) const noexcept;
+    std::tuple<std::shared_ptr<void>, int> decrypt_ecb(const void* const, int) const noexcept;
 
 public:
     u32* gamma(u32* const) const noexcept;

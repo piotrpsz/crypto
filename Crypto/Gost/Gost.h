@@ -66,7 +66,6 @@ public:
 
 private:
     u32 f(const u32) const noexcept;
-    int padding_index(const u8* const, const int) const noexcept;
 };
 
 }} // namespaces

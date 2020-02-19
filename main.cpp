@@ -1,3 +1,33 @@
+/*
+ * BSD 2-Clause License
+ *
+ *	Copyright (c) 2020, Piotr Pszczółkowski
+ *	All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice, this
+ * list of conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright notice,
+ * this list of conditions and the following disclaimer in the documentation
+ * and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+/*------- include files:
+-------------------------------------------------------------------*/
 #include <iostream>
 #include <string>
 #include <memory>
@@ -9,18 +39,21 @@
 #include "Crypto/Way3/Way3.h"
 #include "Crypto/Crypto.h"
 
+/*------- namespaces:
+-------------------------------------------------------------------*/
 using namespace std;
 using namespace beesoft::crypto;
 
-bool compare_bytes(void* const, void* const, const int);
-void print_bytes(void* const, const int);
-
+/*------- forward declarations:
+-------------------------------------------------------------------*/
 void test_way3();
 void way3_test_gamma();
 void way3_test_mu();
 void way3_test_theta();
 void way3_test_rho();
-void way3_test_encrypt_block();
+void way3_test_block();
+void way3_test_ecb();
+void way3_test_cbc_without_iv();
 
 void test_gost();
 void gost_test_block();
@@ -34,10 +67,10 @@ void blowfish_test_cbc_with_iv();
 void blowfish_test_cbc_without_iv();
 
 int main() {
-//    test_blowfish();
-//    cout << endl;
-//    test_gost();
-//    cout << endl;
+    test_blowfish();
+    cout << endl;
+    test_gost();
+    cout << endl;
     test_way3();
     return 0;
 }
@@ -47,10 +80,99 @@ void test_way3() {
     way3_test_mu();
     way3_test_theta();
     way3_test_rho();
-    way3_test_encrypt_block();
+    way3_test_block();
+    way3_test_ecb();
+    way3_test_cbc_without_iv();
 }
 
-void way3_test_encrypt_block() {
+/**
+ * @brief way_test_cbc_without_iv
+ */
+void way3_test_cbc_without_iv() {
+    vector<string> plain = {
+        string("Beesoft Software, Piotr Pszczółkowski"),
+        string("Beesoft Software, Piotr Pszczółkowsk"),
+        string("Beesoft Software, Piotr Pszczółkows"),
+        string("Beesoft Software, Piotr Pszczółkow"),
+        string("Beesoft Software, Piotr Pszczółko"),
+        string("Beesoft Software, Piotr Pszczółk"),
+        string("Beesoft Software, Piotr Pszczół"),
+        string("Beesoft Software, Piotr Pszczó"),
+        string("Beesoft Software, Piotr Pszcz"),
+        string("Beesoft Software, Piotr Pszc"),
+        string("Beesoft Software, Piotr Psz"),
+        string("Beesoft Software, Piotr Ps"),
+        string("Beesoft Software, Piotr P"),
+        string("Beesoft Software, Piotr "),
+        string("Beesoft Software, Piotr"),
+        string("Beesoft Software, Piot"),
+        string("Beesoft Software, Pio"),
+        string("Beesoft Software, Pi"),
+        string("Beesoft Software, P"),
+        string("Beesoft Software, "),
+        string("Beesoft Software,"),
+        string("Beesoft Software"),
+        string("Beesoft"),
+        string("")
+    };
+
+    u8 key[] = {0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF, 0x01, 0x23, 0x45, 0x67};
+    Way3 w3(key, 12);
+    for (int i = 0; i < int(plain.size()); i++) {
+        const auto [cipher, n] = w3.encrypt_cbc(plain[i].data(), plain[i].size());
+        const auto [decipher, k] = w3.decrypt_cbc(cipher.get(), n);
+        assert(string(static_cast<char*>(decipher.get()), k) == plain[i]);
+    }
+    cout << "way3_test_cbc_without_iv: OK" << endl;
+}
+
+void way3_test_ecb() {
+    struct test {
+        u8 key[12];
+        u8 plain[8];
+    } tests[] =
+    {
+        {
+            {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
+            {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
+        },
+        {
+            {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
+            {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
+        },
+        {
+            {0x30, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x30, 0x00, 0x00, 0x00},
+            {0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01},
+        },
+        {
+            {0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11},
+            {0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11},
+        },
+        {
+            {0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF, 0x01, 0x23, 0x45, 0x67},
+            {0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11},
+        },
+        {
+            {0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11},
+            {0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF},
+        },
+        {
+            {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
+            {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
+        },
+    };
+
+    for (int i = 0; i < int(sizeof(tests)/sizeof(test)); i++) {
+        Way3 w3(tests[i].key, 12);
+
+        const auto [cipher, n] = w3.encrypt_ecb(tests[i].plain, sizeof(tests[i].plain));
+        const auto [plain, k] = w3.decrypt_ecb(cipher.get(), n);
+        assert(Crypto::compare_bytes(plain.get(), tests[i].plain, k));
+    }
+    cout << "way3_test_ecb: OK" << endl;
+}
+
+void way3_test_block() {
     struct test {
         u32 key[3];
         u32 plain[3];
@@ -394,10 +516,10 @@ void gost_test_ecb() {
         Gost gt(tests[i].key, 32);
 
         const auto [cipher, n] = gt.encrypt_ecb(tests[i].plain, sizeof(tests[i].plain));
-        assert(compare_bytes(cipher.get(), tests[i].cipher, n));
+        assert(Crypto::compare_bytes(cipher.get(), tests[i].cipher, n));
 
         const auto [plain, k] = gt.decrypt_ecb(cipher.get(), 8);
-        assert(compare_bytes(plain.get(), tests[i].plain, k));
+        assert(Crypto::compare_bytes(plain.get(), tests[i].plain, k));
     }
     cout << "gost_test_ecb: OK" << endl;
 }
@@ -530,9 +652,9 @@ void blowfish_test_ecb() {
         Blowfish bf(tests[i].key, 8);
 
         const auto [cipher, n] = bf.encrypt_ecb(tests[i].plain, sizeof(tests[i].plain));
-        assert(compare_bytes(cipher.get(), tests[i].cipher, n));
+        assert(Crypto::compare_bytes(cipher.get(), tests[i].cipher, n));
         const auto [plain, k] = bf.decrypt_ecb(cipher.get(), 8);
-        assert(compare_bytes(plain.get(), tests[i].plain, k));
+        assert(Crypto::compare_bytes(plain.get(), tests[i].plain, k));
     }
     cout << "blowfish_test_ecb: OK" << endl;
 }
@@ -680,30 +802,4 @@ void blowfish_test_cbc_with_iv() {
         }
     }
     cout << "blowfish_test_cbc_with_iv: OK" << endl;
-}
-
-/********************************************************************
- *                                                                  *
- *                         H E L P E R S                            *
- *                                                                  *
- ********************************************************************/
-
-bool compare_bytes(void* const a, void* const b, const int n) {
-    const u8* ptra = reinterpret_cast<const u8*>(a);
-    const u8* ptrb = reinterpret_cast<const u8*>(b);
-
-    for (int i = 0; i < n; i++) {
-        if (ptra[i] != ptrb[i]) {
-            return false;
-        }
-    }
-    return true;
-}
-
-void print_bytes(void* const data, const int n) {
-    const u8* bytes = reinterpret_cast<const u8*>(data);
-    for (int i = 0; i < n; i++) {
-        printf("0x%02x, ", bytes[i]);
-    }
-    printf("\n");
 }
