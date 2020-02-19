@@ -30,19 +30,15 @@
 
 /*------- include files:
 -------------------------------------------------------------------*/
-#include <cstdint>
 #include <memory>
 #include <tuple>
+#include "Crypto/Crypto.h"
 
 /*------- namespaces:
 -------------------------------------------------------------------*/
 namespace beesoft {
 namespace crypto {
 
-/*------- types:
--------------------------------------------------------------------*/
-using u32 = uint32_t;
-using u8 = uint8_t;
 
 
 static constexpr int RoundCount = 16;
@@ -52,14 +48,16 @@ class Blowfish {
     u32 s[4][256];
 public:
     Blowfish(const void* const, const int);
-
-    void encrypt_block(const u32* const, u32* const) const noexcept;
-    void decrypt_block(const u32* const, u32* const) const noexcept;
-    std::tuple<std::shared_ptr<void>, int> encrypt_ecb(const void* const, const int) const noexcept;
-    std::tuple<std::shared_ptr<void>, int> decrypt_ecb(const void* const, int) const noexcept;
+    ~Blowfish();
 
     std::tuple<std::shared_ptr<void>, int> encrypt_cbc(const void* const, const int, void* = nullptr) const noexcept;
     std::tuple<std::shared_ptr<void>, int> decrypt_cbc(const void* const, int) const noexcept;
+
+    std::tuple<std::shared_ptr<void>, int> encrypt_ecb(const void* const, const int) const noexcept;
+    std::tuple<std::shared_ptr<void>, int> decrypt_ecb(const void* const, int) const noexcept;
+
+    void encrypt_block(const u32* const, u32* const) const noexcept;
+    void decrypt_block(const u32* const, u32* const) const noexcept;
 
 private:
     u32 f(u32) const noexcept;

@@ -31,9 +31,9 @@
 #include <iostream>
 #include <string>
 #include <cstring>
-#include <sys/random.h>
 #include "Blowfish.h"
 #include "BlowfishData.h"
+#include "Crypto/Crypto.h"
 
 /*------- namespaces:
 -------------------------------------------------------------------*/
@@ -99,6 +99,14 @@ Blowfish::Blowfish(const void* const cipher_key, const int key_size) {
             s[i][j+1] = data[1];
         }
     }
+}
+
+Blowfish::~Blowfish() {
+    Crypto::clear_bytes(p, (RoundCount+2) * sizeof(u32));
+    Crypto::clear_bytes(s[0], 256 * sizeof(u32));
+    Crypto::clear_bytes(s[1], 256 * sizeof(u32));
+    Crypto::clear_bytes(s[2], 256 * sizeof(u32));
+    Crypto::clear_bytes(s[3], 256 * sizeof(u32));
 }
 
 inline u32 Blowfish::f(u32 x) const noexcept {
@@ -309,7 +317,7 @@ Blowfish::encrypt_cbc(const void* const data, const int nbytes, void* iv) const 
         // Jeśli funkcja wywołująca nie przekazała wektora IV
         // sami generujemy go losowo.
         iv = new u8[BlockSize];
-        while (getrandom(iv, BlockSize, 0) != BlockSize);
+        Crypto::random_bytes(iv, BlockSize);
         custom_iv = true;
     }
 

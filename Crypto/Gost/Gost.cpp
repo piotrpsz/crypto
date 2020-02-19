@@ -31,6 +31,7 @@
 #include <iostream>
 #include <cstring>
 #include "Gost.h"
+#include "Crypto/Crypto.h"
 
 /*------- namespaces:
 -------------------------------------------------------------------*/
@@ -42,28 +43,20 @@ static constexpr int BlockSize = 8;
 static constexpr int KeySize = 32;  // in bytes (= 8xu32)
 
 
-static void print_bytes(void* const data, const int n) {
-    const u8* bytes = reinterpret_cast<const u8*>(data);
-    for (int i = 0; i < n; i++) {
-        printf("0x%02x, ", bytes[i]);
-    }
-    printf("\n");
-}
-
 Gost::Gost(const void* const user_key, const int key_size) {
     if (key_size != KeySize) {
         cerr << "Error (blowfish): invalid key size" << endl;
         return;
     }
 
-    const u8 k8[16] = {14, 4, 13, 1, 2, 15, 11, 8, 3, 10, 6, 12, 5, 9, 0, 7};
-    const u8 k7[16] = {15, 1, 8, 14, 6, 11, 3, 4, 9, 7, 2, 13, 12, 0, 5, 10};
-    const u8 k6[16] = {10, 0, 9, 14, 6, 3, 15, 5, 1, 13, 12, 7, 11, 4, 2, 8};
-    const u8 k5[16] = {7, 13, 14, 3, 0, 6, 9, 10, 1, 2, 8, 5, 11, 12, 4, 15};
-    const u8 k4[16] = {2, 12, 4, 1, 7, 10, 11, 6, 8, 5, 3, 15, 13, 0, 14, 9};
-    const u8 k3[16] = {12, 1, 10, 15, 9, 2, 6, 8, 0, 13, 3, 4, 14, 7, 5, 11};
-    const u8 k2[16] = {4, 11, 2, 14, 15, 0, 8, 13, 3, 12, 9, 7, 5, 10, 6, 1};
-    const u8 k1[16] = {13, 2, 8, 4, 6, 15, 11, 1, 10, 9, 3, 14, 5, 0, 12, 7};
+    static const u8 k8[16] = {14, 4, 13, 1, 2, 15, 11, 8, 3, 10, 6, 12, 5, 9, 0, 7};
+    static const u8 k7[16] = {15, 1, 8, 14, 6, 11, 3, 4, 9, 7, 2, 13, 12, 0, 5, 10};
+    static const u8 k6[16] = {10, 0, 9, 14, 6, 3, 15, 5, 1, 13, 12, 7, 11, 4, 2, 8};
+    static const u8 k5[16] = {7, 13, 14, 3, 0, 6, 9, 10, 1, 2, 8, 5, 11, 12, 4, 15};
+    static const u8 k4[16] = {2, 12, 4, 1, 7, 10, 11, 6, 8, 5, 3, 15, 13, 0, 14, 9};
+    static const u8 k3[16] = {12, 1, 10, 15, 9, 2, 6, 8, 0, 13, 3, 4, 14, 7, 5, 11};
+    static const u8 k2[16] = {4, 11, 2, 14, 15, 0, 8, 13, 3, 12, 9, 7, 5, 10, 6, 1};
+    static const u8 k1[16] = {13, 2, 8, 4, 6, 15, 11, 1, 10, 9, 3, 14, 5, 0, 12, 7};
 
     memcpy(k, user_key, KeySize);
 
@@ -77,6 +70,207 @@ Gost::Gost(const void* const user_key, const int key_size) {
     }
 }
 
+Gost::~Gost() {
+    Crypto::clear_bytes(k, 8 * sizeof(u32));
+    Crypto::clear_bytes(k87, 256);
+    Crypto::clear_bytes(k65, 256);
+    Crypto::clear_bytes(k43, 256);
+    Crypto::clear_bytes(k21, 256);
+}
+
+/**
+ * @brief encrypt_cbc
+ * Szyfrowanie w trybie CBC z wektorem IV. Jeśli IV nie został przekazany
+ * jako parametr to zostanie losowo wygenerowany.
+ * Wektor IV jest pierwszym blokiem zaszyfrowanych danych.
+ * Jeśli rozmiar jawnych danych nie jest wielokrotnością rozmiaru bloku
+ * zostanie uzupełniony o tzw. padding.
+ *
+ * @param data - adres bufora z jawnymi danymi do zaszyfrowania.
+ * @param nbytes - rozmiar bufora z jawnymi danymi w bajtach.
+ * @param iv - adres wektor IV (może być nullptr).
+ * @return - tuple: adres bufora z zaszyfrowanymi danymi + jego rozmiar w bajtach.
+ */
+std::tuple<std::shared_ptr<void>, int>
+Gost::encrypt_cbc(const void* const data, const int nbytes, void* iv) const noexcept {
+
+    if (data == nullptr || nbytes == 0) {
+        return make_tuple(shared_ptr<void>(nullptr), 0);
+    }
+
+    bool custom_iv = false;
+    if (iv == nullptr) {
+        // Jeśli funkcja wywołująca nie przekazała wektora IV
+        // sami generujemy go losowo.
+        iv = new u8[BlockSize];
+        Crypto::random_bytes(iv, BlockSize);
+        custom_iv = true;
+    }
+
+    u8* plain = nullptr;
+    int size = nbytes;
+    const int n = size % BlockSize;
+    if (n) {
+        // Ponieważ rozmiar bufora danych do zaszyfrownia
+        // nie jest wielokrotnością bloku dodajemy padding
+        // o stosownej długości.
+        const int dn = BlockSize - n;
+        plain = new u8[size + dn];
+        memcpy(plain, data, size);
+        bzero(plain + size, dn);
+        plain[size] = 128;
+        size += dn;
+    } else {
+        plain = new u8[size];
+        memcpy(plain, data, size);
+    }
+
+    u8* const cipher = new u8[size + BlockSize];
+
+    u32* src = reinterpret_cast<u32*>(plain);
+    u32* dst = reinterpret_cast<u32*>(cipher);
+    memcpy(dst, iv, BlockSize);
+
+    u32 tmp[2];
+    for (int i = 0; i < (size/BlockSize); i++) {
+        tmp[0] = src[0] ^ dst[0];
+        tmp[1] = src[1] ^ dst[1];
+        dst += 2;
+        encrypt_block(tmp, dst);
+        src += 2;
+    }
+
+    if (custom_iv) delete[] static_cast<u8*>(iv);
+    delete[] plain;
+
+    return make_tuple(shared_ptr<void>(cipher, [](void* ptr) {delete[] static_cast<u8*>(ptr);}), size + BlockSize);
+}
+
+/**
+ * @brief decrypt_cbc
+ * Deszyfrowanie w trybie CBC.
+ * Należy pamietać że pierwszym blokiem zaszyfrowanych danych jest wektor IV.
+ * Jeśli odszyfrowane jawne dane zawierają padding to zostanie on 'ucięty'.
+ *
+ * @param data - adres bufora z zaszyfrowanymi danymi do odszyfrowania.
+ * @param nbytes - rozmiar bufora z zaszyfrowanymi danymi w bajtach.
+ * @return - tuple: adres bufora z odszyfrowanymi danymi + jego rozmiar w bajtach.
+ */
+std::tuple<std::shared_ptr<void>, int>
+Gost::decrypt_cbc(const void* const cipher, int nbytes) const noexcept {
+
+    if (cipher == nullptr || nbytes == 0) {
+        return make_tuple(shared_ptr<void>(nullptr), 0);
+    }
+
+    nbytes -= BlockSize;
+    u8* const plain  = new u8[nbytes];
+    bzero(plain, nbytes);
+
+    const u32* src = reinterpret_cast<const u32*>(cipher);
+    u32* dst = reinterpret_cast<u32*>(plain);
+
+    for (int i = 0; i < (nbytes/BlockSize); i++) {
+        decrypt_block(src + 2, dst);
+
+        dst[0] = dst[0] ^ src[0];
+        dst[1] = dst[1] ^ src[1];
+        dst += 2;
+        src += 2;
+    }
+
+    if (const int idx = padding_index(plain, nbytes); idx != -1) {
+        nbytes = idx;
+    }
+    return make_tuple(shared_ptr<void>(plain, [](void* ptr) {delete[] static_cast<u8*>(ptr);}), nbytes);
+}
+
+/**
+ * @brief encrypt_ecb
+ * Szyfrowanie w trybie ECB.
+ * Jeśli rozmiar jawnych danych nie jest wielokrotnością rozmiaru bloku
+ * zostanie uzupełniony o tzw. padding.
+ *
+ * @param data - adres bufora z jawnymi danymi do zaszyfrowania.
+ * @param nbytes - rozmiar bufora z jawnymi danymi w bajtach.
+ * @return - tuple: adres bufora z zaszyfrowanymi danymi + jego rozmiar w bajtach.
+ */
+std::tuple<shared_ptr<void>, int>
+Gost::encrypt_ecb(const void* const data, const int nbytes) const noexcept {
+
+    if (data == nullptr || nbytes == 0) {
+        return make_tuple(shared_ptr<void>(nullptr), 0);
+    }
+
+    int size = nbytes;
+    const int n = size % BlockSize;
+    u8* const plain = new u8[size + n];
+    memcpy(plain, data, size);
+    if (n) {
+        // Ponieważ rozmiar bufora danych do zaszyfrownia
+        // nie jest wielokrotnością bloku dodajemy padding
+        // o stosownej długości.
+        bzero(plain + size, n);
+        plain[size] = 128;
+        size += n;
+    }
+
+    u8* const cipher = new u8[size];
+
+    u32* src = reinterpret_cast<u32*>(plain);
+    u32* dst = reinterpret_cast<u32*>(cipher);
+
+    for (int i = 0; i < (size/BlockSize); i++) {
+        encrypt_block(src, dst);
+        src += 2;
+        dst += 2;
+    }
+
+    delete[] plain;
+    return make_tuple(shared_ptr<void>(cipher, [](void* ptr) {delete[] static_cast<u8*>(ptr);}), size);
+}
+
+/**
+ * @brief decrypt_ecb
+ * Deszyfrowanie w trybie ECB.
+ * Jeśli odszyfrowane jawne dane zawierają padding to zostanie on 'ucięty'.
+ *
+ * @param data - adres bufora z zaszyfrowanymi danymi do odszyfrowania.
+ * @param nbytes - rozmiar bufora z zaszyfrowanymi danymi w bajtach.
+ * @return - tuple: adres bufora z odszyfrowanymi danymi + jego rozmiar w bajtach.
+ */
+std::tuple<std::shared_ptr<void>, int>
+Gost::decrypt_ecb(const void* const cipher, int nbytes) const noexcept {
+
+    if (cipher == nullptr || nbytes == 0) {
+        return make_tuple(shared_ptr<void>(nullptr), 0);
+    }
+
+    u8* const plain  = new u8[nbytes];
+    bzero(plain, nbytes);
+
+    const u32* src = reinterpret_cast<const u32*>(cipher);
+    u32* dst = reinterpret_cast<u32*>(plain);
+
+    for (int i = 0; i < (nbytes/BlockSize); i++) {
+        decrypt_block(src, dst);
+        src += 2;
+        dst += 2;
+    }
+
+    if (const int idx = padding_index(plain, nbytes); idx != -1) {
+        nbytes = idx;
+    }
+    return make_tuple(shared_ptr<void>(plain, [](void* ptr) {delete[] static_cast<u8*>(ptr);}), nbytes);
+}
+
+/**
+ * @brief encrypt_block
+ * Szyfrowanie bloku (2xu32) jawnych danych.
+ *
+ * @param src - adres bufora z jawnymi danymi.
+ * @param dst - adres bufora na dane zaszyfrowane.
+ */
 void Gost::encrypt_block(const u32* const src, u32* const dst) const noexcept {
     u32 n1 = src[0];
     u32 n2 = src[1];
@@ -121,6 +315,13 @@ void Gost::encrypt_block(const u32* const src, u32* const dst) const noexcept {
     dst[1] = n1;
 }
 
+/**
+ * @brief decrypt_block
+ * Odszyfrowanie bloku (2xu32) zaszyfrowanych danych.
+ *
+ * @param src - adres bufora z zaszyfrowanymi danymi
+ * @param dst - adres bufora na dane odszyfrowane.
+ */
 void Gost::decrypt_block(const u32* const src, u32* const dst) const noexcept {
     u32 n1 = src[0];
     u32 n2 = src[1];
@@ -175,6 +376,26 @@ inline u32 Gost::f(const u32 x) const noexcept {
     return (w << 11) | (w >> (32 - 11));
 }
 
+/**
+ * @brief padding_index
+ * Wyszukiwanie od końca 1-szego wystąpienia bajtu o wartości 128.
+ * Szukany bajt może być poprzedzony (od końca) tylko bajtami zerowymi.
+ *
+ * @param data - adres bufora z danymi.
+ * @param nbytes - rozmiar bufora z danymi.
+ * @return indeks bajtu w wartości 128, lub -1 jeśli nie znaleziono.
+ */
+int Gost::padding_index(const u8* const data, const int nbytes) const noexcept {
+    for (int i = nbytes - 1; i >= 0; i--) {
+        if (data[i] != 0) {
+            if (data[i] == 128) {
+                return i;
+            }
+            break;
+        }
+    }
+    return -1;
+}
 
 
 }} // namespaces

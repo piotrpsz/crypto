@@ -54,12 +54,20 @@ class Gost {
 
 public:
     Gost(const void* const, const int);
+    ~Gost();
+
+    std::tuple<std::shared_ptr<void>, int> encrypt_cbc(const void* const, const int, void* = nullptr) const noexcept;
+    std::tuple<std::shared_ptr<void>, int> decrypt_cbc(const void* const, int) const noexcept;
+
+    std::tuple<std::shared_ptr<void>, int> encrypt_ecb(const void* const, const int) const noexcept;
+    std::tuple<std::shared_ptr<void>, int> decrypt_ecb(const void* const, int) const noexcept;
 
     void encrypt_block(const u32* const, u32* const) const noexcept;
     void decrypt_block(const u32* const, u32* const) const noexcept;
 
 private:
     u32 f(const u32) const noexcept;
+    int padding_index(const u8* const, const int) const noexcept;
 };
 
 }} // namespaces
