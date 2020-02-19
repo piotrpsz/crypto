@@ -3,8 +3,10 @@
 #include <memory>
 #include <cassert>
 #include <vector>
+#include <cstring>
 #include "Crypto/Blowfish/Blowfish.h"
 #include "Crypto/Gost/Gost.h"
+#include "Crypto/Way3/Way3.h"
 #include "Crypto/Crypto.h"
 
 using namespace std;
@@ -12,6 +14,13 @@ using namespace beesoft::crypto;
 
 bool compare_bytes(void* const, void* const, const int);
 void print_bytes(void* const, const int);
+
+void test_way3();
+void way3_test_gamma();
+void way3_test_mu();
+void way3_test_theta();
+void way3_test_rho();
+void way3_test_encrypt_block();
 
 void test_gost();
 void gost_test_block();
@@ -25,11 +34,205 @@ void blowfish_test_cbc_with_iv();
 void blowfish_test_cbc_without_iv();
 
 int main() {
-    test_blowfish();
-    cout << endl;
-    test_gost();
+//    test_blowfish();
+//    cout << endl;
+//    test_gost();
+//    cout << endl;
+    test_way3();
     return 0;
 }
+
+void test_way3() {
+    way3_test_gamma();
+    way3_test_mu();
+    way3_test_theta();
+    way3_test_rho();
+    way3_test_encrypt_block();
+}
+
+void way3_test_encrypt_block() {
+
+}
+
+void way3_test_rho() {
+    struct test {
+        u32 data[3];
+        u32 want[3];
+    } tests[] = {
+        {
+            {0x00000000, 0x00000000, 0x00000000},
+            {0xffffffff, 0xffffffff, 0xffffffff}
+        },
+        {
+            {0x00000001, 0x00000002, 0x00000003},
+            {0xf77f7ff6, 0x7dbfbcfd, 0xbefeffff}
+        },
+        {
+            {0x00000004, 0x00000005, 0x00000006},
+            {0xededf06e, 0x7bf9ff3a, 0x7dbdfdfe}
+        },
+        {
+            {0xffffffff, 0xffffffff, 0xffffffff},
+            {0x00000000, 0x00000000, 0x00000000}
+        },
+        {
+            {0x01010101, 0x02020202, 0x03030303},
+            {0xfe7efff7, 0xfc3f7ffe, 0xfebfbfff}
+        },
+        {
+            {0x01234567, 0x89abcdef, 0xfedcba98},
+            {0x842224d3, 0x1a47237a, 0xbb1e62f3}
+        },
+    };
+
+    Way3 w3;
+    u32 buffer[3];
+    for (int i = 0; i < int(sizeof(tests)/sizeof(test)); i++) {
+        memcpy(buffer, tests[i].data, 3 * sizeof(u32));
+        w3.rho(buffer);
+        assert(buffer[0] == tests[i].want[0]);
+        assert(buffer[1] == tests[i].want[1]);
+        assert(buffer[2] == tests[i].want[2]);
+    }
+    cout << "way3_test_rho: OK" << endl;
+}
+
+void way3_test_mu() {
+    struct test {
+        u32 data[3];
+        u32 want[3];
+    } tests[] = {
+        {
+            {0x00000000, 0x00000000, 0x00000000},
+            {0x00000000, 0x00000000, 0x00000000}
+        },
+        {
+            {0x00000001, 0x00000002, 0x00000003},
+            {0xc0000000, 0x40000000, 0x80000000}
+        },
+        {
+            {0x00000004, 0x00000005, 0x00000006},
+            {0x60000000, 0xa0000000, 0x20000000}
+        },
+        {
+            {0xffffffff, 0xffffffff, 0xffffffff},
+            {0xffffffff, 0xffffffff, 0xffffffff}
+        },
+        {
+            {0x01010101, 0x02020202, 0x03030303},
+            {0xc0c0c0c0, 0x40404040, 0x80808080}
+        },
+        {
+            {0x01234567, 0x89abcdef, 0xfedcba98},
+            {0x195d3b7f, 0xf7b3d591, 0xe6a2c480}
+        }
+    };
+
+    Way3 w3;
+    u32 buffer[3];
+    for (int i = 0; i < int(sizeof(tests)/sizeof(test)); i++) {
+        memcpy(buffer, tests[i].data, 3 * sizeof(u32));
+        w3.mu(buffer);
+        assert(buffer[0] == tests[i].want[0]);
+        assert(buffer[1] == tests[i].want[1]);
+        assert(buffer[2] == tests[i].want[2]);
+    }
+    cout << "way3_test_mu: OK" << endl;
+}
+
+
+void way3_test_gamma() {
+    struct test {
+        u32 data[3];
+        u32 want[3];
+    } tests[] = {
+        {
+            {0x00000000, 0x00000000, 0x00000000},
+            {0xffffffff, 0xffffffff, 0xffffffff}
+        },
+        {
+            {0x00000001, 0x00000002, 0x00000003},
+            {0xffffffff, 0xfffffffd, 0xfffffffe}
+        },
+        {
+            {0x00000004, 0x00000005, 0x00000006},
+            {0xfffffff9, 0xfffffffa, 0xfffffff8}
+        },
+        {
+            {0xffffffff, 0xffffffff, 0xffffffff},
+            {0x00000000, 0x00000000, 0x00000000}
+        },
+        {
+            {0x01010101, 0x02020202, 0x03030303},
+            {0xffffffff, 0xfdfdfdfd, 0xfefefefe}
+        },
+        {
+            {0x01234567, 0x89abcdef, 0xfedcba98},
+            {0x88888888, 0x77777777, 0x89abcdef}
+        }
+    };
+
+    Way3 w3;
+    u32 buffer[3];
+    for (int i = 0; i < int(sizeof(tests)/sizeof(test)); i++) {
+        memcpy(buffer, tests[i].data, 3 * sizeof(u32));
+        w3.gamma(buffer);
+        assert(buffer[0] == tests[i].want[0]);
+        assert(buffer[1] == tests[i].want[1]);
+        assert(buffer[2] == tests[i].want[2]);
+    }
+    cout << "way3_test_gamma: OK" << endl;
+
+}
+
+void way3_test_theta() {
+    struct test {
+        u32 data[3];
+        u32 want[3];
+    } tests[] = {
+        {
+            {0x00000000, 0x00000000, 0x00000000},
+            {0x00000000, 0x00000000, 0x00000000}
+        },
+        {
+            {0x00000001, 0x00000002, 0x00000003},
+            {0x01000201, 0x02000302, 0x03000103}
+        },
+        {
+            {0x00000004, 0x00000005, 0x00000006},
+            {0x04070204, 0x05070105, 0x06070306}
+        },
+        {
+            {0xffffffff, 0xffffffff, 0xffffffff},
+            {0xffffffff, 0xffffffff, 0xffffffff}
+        },
+        {
+            {0x01010101, 0x02020202, 0x03030303},
+            {0x02000003, 0x03000001, 0x01000002}
+        },
+        {
+            {0x01234567, 0x89abcdef, 0xfedcba98},
+            {0xab3210fe, 0xdc321001, 0x23321089}
+        }
+    };
+
+    Way3 w3;
+    u32 buffer[3];
+    for (int i = 0; i < int(sizeof(tests)/sizeof(test)); i++) {
+        memcpy(buffer, tests[i].data, 3 * sizeof(u32));
+        w3.theta(buffer);
+        assert(buffer[0] == tests[i].want[0]);
+        assert(buffer[1] == tests[i].want[1]);
+        assert(buffer[2] == tests[i].want[2]);
+    }
+    cout << "way3_test_theta: OK" << endl;
+}
+
+/********************************************************************
+ *                                                                  *
+ *                            G O S T                               *
+ *                                                                  *
+ ********************************************************************/
 
 void test_gost() {
     gost_test_block();

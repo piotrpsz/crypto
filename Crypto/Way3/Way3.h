@@ -1,5 +1,5 @@
-#ifndef BEESOFT_CRYPTO_GOST_H
-#define BEESOFT_CRYPTO_GOST_H
+#ifndef BEESOFT_CRYPTO_WAY3_H
+#define BEESOFT_CRYPTO_WAY3_H
 /*
  * BSD 2-Clause License
  *
@@ -28,7 +28,6 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-
 /*------- include files:
 -------------------------------------------------------------------*/
 #include <cstdint>
@@ -41,33 +40,23 @@
 namespace beesoft {
 namespace crypto {
 
-/*------- types:
--------------------------------------------------------------------*/
 
-class Gost {
-     u32 k[8];
-     u8  k87[256];
-     u8  k65[256];
-     u8  k43[256];
-     u8  k21[256];
+class Way3 {
+    u32 k[3];
+    u32 ki[3];
+public:
+    Way3(); // only for tests of helper methods
+    Way3(const void* const, const int);
+    ~Way3();
 
 public:
-    Gost(const void* const, const int);
-    ~Gost();
-
-    std::tuple<std::shared_ptr<void>, int> encrypt_cbc(const void* const, const int, void* = nullptr) const noexcept;
-    std::tuple<std::shared_ptr<void>, int> decrypt_cbc(const void* const, int) const noexcept;
-
-    std::tuple<std::shared_ptr<void>, int> encrypt_ecb(const void* const, const int) const noexcept;
-    std::tuple<std::shared_ptr<void>, int> decrypt_ecb(const void* const, int) const noexcept;
-
-    void encrypt_block(const u32* const, u32* const) const noexcept;
-    void decrypt_block(const u32* const, u32* const) const noexcept;
-
-private:
-    u32 f(const u32) const noexcept;
-    int padding_index(const u8* const, const int) const noexcept;
+    u32* gamma(u32* const) const noexcept;
+    u32* mu(u32* const) const noexcept;
+    u32* theta(u32* const) const noexcept;
+    u32* pi_1(u32* const) const noexcept;
+    u32* pi_2(u32* const) const noexcept;
+    u32* rho(u32* const) const noexcept;
 };
 
 }} // namespaces
-#endif // BEESOFT_CRYPTO_GOST_H
+#endif // BEESOFT_CRYPTO_WAY3_H
