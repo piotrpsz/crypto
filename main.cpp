@@ -5,6 +5,7 @@
 #include <vector>
 #include "Crypto/Blowfish/Blowfish.h"
 #include "Crypto/Gost/Gost.h"
+#include "Crypto/Crypto.h"
 
 using namespace std;
 using namespace beesoft::crypto;
@@ -15,6 +16,7 @@ void print_bytes(void* const, const int);
 void test_gost();
 void gost_test_block();
 void gost_test_ecb();
+void gost_test_cbc_without_iv();
 
 void test_blowfish();
 void blowfish_test_block();
@@ -32,6 +34,7 @@ int main() {
 void test_gost() {
     gost_test_block();
     gost_test_ecb();
+    gost_test_cbc_without_iv();
 }
 
 void gost_test_block() {
@@ -153,9 +156,50 @@ void gost_test_ecb() {
         const auto [plain, k] = gt.decrypt_ecb(cipher.get(), 8);
         assert(compare_bytes(plain.get(), tests[i].plain, k));
     }
-    cout << "blowfish_test_ecb: OK" << endl;
+    cout << "gost_test_ecb: OK" << endl;
 }
 
+void gost_test_cbc_without_iv() {
+    vector<string> plain = {
+        string("Beesoft Software, Piotr Pszczółkowski"),
+        string("Beesoft Software, Piotr Pszczółkowsk"),
+        string("Beesoft Software, Piotr Pszczółkows"),
+        string("Beesoft Software, Piotr Pszczółkow"),
+        string("Beesoft Software, Piotr Pszczółko"),
+        string("Beesoft Software, Piotr Pszczółk"),
+        string("Beesoft Software, Piotr Pszczół"),
+        string("Beesoft Software, Piotr Pszczó"),
+        string("Beesoft Software, Piotr Pszcz"),
+        string("Beesoft Software, Piotr Pszc"),
+        string("Beesoft Software, Piotr Psz"),
+        string("Beesoft Software, Piotr Ps"),
+        string("Beesoft Software, Piotr P"),
+        string("Beesoft Software, Piotr "),
+        string("Beesoft Software, Piotr"),
+        string("Beesoft Software, Piot"),
+        string("Beesoft Software, Pio"),
+        string("Beesoft Software, Pi"),
+        string("Beesoft Software, P"),
+        string("Beesoft Software, "),
+        string("Beesoft Software,"),
+        string("Beesoft Software"),
+        string("Beesoft"),
+        string("")
+    };
+
+    // 20 loops with random key value
+    u8 key[32];
+    for (int j = 0; j < 20; j++) {
+        Crypto::random_bytes(key, 32);
+        Gost gt(key, 32);
+        for (int i = 0; i < int(plain.size()); i++) {
+            const auto [cipher, n] = gt.encrypt_cbc(plain[j].data(), plain[j].size());
+            const auto [decipher, k] = gt.decrypt_cbc(cipher.get(), n);
+            assert(string(static_cast<char*>(decipher.get()), k) == plain[j]);
+        }
+    }
+    cout << "gosth_test_cbc_without_iv (random keys): OK" << endl;
+}
 
 /********************************************************************
  *                                                                  *
